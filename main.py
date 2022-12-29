@@ -11,9 +11,10 @@ import torchvision
 from torchvision import transforms as transform
 
 # Hyper-prameters
+neurons = [28*28, 120, 84, 10]
+EPOCHS = 3
 batch_size = 10
-EPOCHS = 5
-lr =0.01
+lr =0.1
 data_path = 'datasets/'
 trained_model_path = 'mnist_net.pth'
 
@@ -40,7 +41,8 @@ def dataset_loader(path=data_path, shuffle=True):
         dataset=test_data,
         batch_size=batch_size,
         shuffle=shuffle)
-    return train_loader, test_loader 
+    return train_loader, test_loader
+
 
 def sample_viewer(dataset, index=None):
     """
@@ -49,32 +51,27 @@ def sample_viewer(dataset, index=None):
     """
     dataset = iter(dataset)
     imgs, labels = dataset.next()
-    if index==None: index=randrange(0, len(dataset)) 
-    plt.title(f"This sample presents the number '{labels[index]}'.")
+    if index==None: index=randrange(0, len(imgs)) 
+    plt.title(f"This image sample presents the number '{labels[index]}'.")
     plt.imshow(np.transpose(imgs[index], (1, 2, 0)))
     plt.show()
 
-def network_builder():
+
+def network_builder(archtechture):
     """
     Neural network archtechture.
     return value is -> (network_instence, loss_function, opimizer_instence)
     """
-    class MnistNet_partI(nn.Module):
-        def __init__(self):
-            super().__init__()
-            self.input_lay = nn.Linear(in_features=28*28, out_features=120)
-            self.headen1_lay = nn.Linear(in_features=120, out_features=84)
-            self.output_lay = nn.Linear(in_features=84, out_features=10)
-
-
-        def forward(self, x):
-            x = torch.flatten(x, 1)
-            x = functional.relu(self.input_lay(x))
-            x = functional.relu(self.headen1_lay(x))
-            x = self.output_lay(x)
-            return x
-    net_ins = MnistNet_partI()
+    model_layers=[nn.Flatten(1, -1)]
+    for index, lay in enumerate(archtechture):
+        if index+1<len(archtechture):
+            model_layers.append(nn.Linear(lay, archtechture[index+1]))
+            model_layers.append(nn.ReLU())
+        else:
+            model_layers.pop()
+    net_ins = nn.Sequential(*model_layers)
     return net_ins, nn.CrossEntropyLoss(), optimizer.SGD(net_ins.parameters(), lr=lr)
+
 
 def network_trainer(network, loss_fun, optimizer, training_data, model_root=trained_model_path):
     """
@@ -94,8 +91,9 @@ def network_trainer(network, loss_fun, optimizer, training_data, model_root=trai
             optimizer.step()
 
             batch_counter+=1
-    print("\n^DONE^\n")
     torch.save(network.state_dict(), model_root)
+    print("\n^DONE^\n")
+
 
 def network_prediction(network, testing_data, model_root=trained_model_path):
     """
@@ -105,14 +103,17 @@ def network_prediction(network, testing_data, model_root=trained_model_path):
     imges, labels = test_sampels.next()
     results = network(imges[0])
     _, predicted = torch.max(results, 1)
-    color = 'red'
-    title = f'the predected number in the image is ({int(predicted)})\nBUT! desired number is ({labels[0]})'
+    
     if predicted==labels[0]: 
         color='green'
         title= f'the predected number in the image is ({int(predicted)})\nWhich is True ^_^'
+    else:
+        color = 'red'
+        title = f'the predected number in the image is ({int(predicted)})\nBUT! desired number is ({labels[0]})'
     plt.title(title, color=color)
     plt.imshow(np.transpose(imges[0], (1, 2, 0)))
-    plt.show
+    plt.show()
+
 
 def accuracy_evalutor(network, testing_data):
     # Measure accuracy for each class
@@ -127,19 +128,19 @@ def accuracy_evalutor(network, testing_data):
             # collect the correct predictions for each class
             for label, prediction in zip(labels, predictions):
                 if label == prediction: correct_pred+= 1
-    print(f'Accuracy of the network on the {len(testing.dataset)} test images:{(correct_pred/len(testing.dataset))* 100}%')
-
+    accuracy = round((correct_pred/len(testing.dataset))* 100, 2)
+    loss = round(100-accuracy, 2)
+    print(f'Accuracy of the network on the {len(testing.dataset)} test images:{accuracy}% -> Loss:{loss}%')
 
 
 trainig, testing = dataset_loader()
-net, loss_fun, optim =  network_builder()
 
-# network_trainer(network=net,
-#                 loss_fun=loss_fun,
-#                 optimizer=optim,
-#                 training_data=trainig)
-
-network_prediction(network=net,
-                   testing_data=testing)
-
+sample_viewer(trainig) # change training to testing to view test sample
+net, loss_fun, optim =  network_builder(neurons)
+network_trainer(network=net,
+                loss_fun=loss_fun,
+                optimizer=optim,
+                training_data=trainig)
+network_prediction(network=net, testing_data=testing)
 accuracy_evalutor(network=net, testing_data=testing)
+
