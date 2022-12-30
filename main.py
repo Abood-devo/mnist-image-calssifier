@@ -6,15 +6,16 @@ import torch.nn.functional as functional
 import matplotlib.pyplot as plt 
 import numpy as np
 from random import randrange
+from time import process_time
 
 import torchvision
 from torchvision import transforms as transform
 
 # Hyper-prameters
-neurons = [28*28, 120, 84, 10]
-EPOCHS = 3
-batch_size = 10
-lr =0.1
+neurons = [28*28, 10]
+EPOCHS = 2
+batch_size = 20
+lr = 0.1
 data_path = 'datasets/'
 trained_model_path = 'mnist_net.pth'
 
@@ -78,6 +79,7 @@ def network_trainer(network, loss_fun, optimizer, training_data, model_root=trai
     used to train a given network, after trainging a ".pth" file will be a generated.
     """
     print("Training...")
+    start = process_time()
     for epoch in range(EPOCHS):
         batch_counter = 1
         for batch in training_data:
@@ -92,7 +94,8 @@ def network_trainer(network, loss_fun, optimizer, training_data, model_root=trai
 
             batch_counter+=1
     torch.save(network.state_dict(), model_root)
-    print("\n^DONE^\n")
+    print(f"\n^DONE^ time elapsed training = {round(process_time() - start, 4)}s \n")
+
 
 
 def network_prediction(network, testing_data, model_root=trained_model_path):
@@ -116,7 +119,6 @@ def network_prediction(network, testing_data, model_root=trained_model_path):
 
 
 def accuracy_evalutor(network, testing_data):
-    # Measure accuracy for each class
     correct_pred = 0
     
     with torch.no_grad():
@@ -130,17 +132,17 @@ def accuracy_evalutor(network, testing_data):
                 if label == prediction: correct_pred+= 1
     accuracy = round((correct_pred/len(testing.dataset))* 100, 2)
     loss = round(100-accuracy, 2)
-    print(f'Accuracy of the network on the {len(testing.dataset)} test images:{accuracy}% -> Loss:{loss}%')
+    print(f'Accuracy on {len(testing.dataset)} test images= {accuracy}% -> Loss:{loss}%')
 
 
 trainig, testing = dataset_loader()
 
 sample_viewer(trainig) # change training to testing to view test sample
 net, loss_fun, optim =  network_builder(neurons)
+
 network_trainer(network=net,
                 loss_fun=loss_fun,
                 optimizer=optim,
                 training_data=trainig)
 network_prediction(network=net, testing_data=testing)
 accuracy_evalutor(network=net, testing_data=testing)
-
